@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Vault</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.2.0/crypto-js.min.js"></script>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; -webkit-tap-highlight-color: transparent; }
+        body { background: #0a0f1a; color: #e2e8f0; max-width: 100%; margin: 0 auto; min-height: 100vh; overflow-x: hidden; }
+        .screen { display: none; min-height: 100vh; padding: 20px; animation: fadeIn 0.3s ease; }
+        .screen.active { display: flex; flex-direction: column; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        .auth-container { justify-content: center; align-items: center; background: linear-gradient(180deg, #0f172a 0%, #1e1b4b 100%); padding: 24px; }
+        .auth-box { background: #1e293b; border: 1px solid #334155; padding: 32px 24px; border-radius: 16px; width: 100%; max-width: 380px; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5); }
+        .auth-box h1 { font-size: 26px; margin-bottom: 8px; text-align: center; color: #f8fafc; }
+        .auth-box .subtitle { color: #94a3b8; margin-bottom: 24px; text-align: center; font-size: 14px; line-height: 1.5; }
+        .input-group { margin-bottom: 16px; }
+        .input-group label { display: block; font-size: 12px; color: #94a3b8; margin-bottom: 6px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.5px; }
+        .input-group input { width: 100%; padding: 14px 16px; background: #0f172a; border: 1px solid #334155; border-radius: 10px; color: #f8fafc; font-size: 16px; }
+        .btn { width: 100%; padding: 16px; background: #6366f1; color: white; border: none; border-radius: 10px; font-size: 16px; font-weight: 600; cursor: pointer; }
+        .btn-secondary { background: #334155; margin-top: 12px; }
+        .btn-text { background: transparent; color: #94a3b8; font-size: 14px; margin-top: 16px; }
+        .error { color: #f87171; font-size: 13px; text-align: center; margin-top: 12px; padding: 10px; background: rgba(248,113,113,0.1); border-radius: 8px; display: none; }
+        .recovery-box { background: #0f172a; border: 1px solid #334155; border-radius: 10px; padding: 16px; margin: 16px 0; }
+        .recovery-code { font-family: monospace; font-size: 16px; letter-spacing: 1px; color: #34d399; text-align: center; padding: 12px; background: #064e3b; border-radius: 8px; word-break: break-all; }
+        #mainScreen { background: #0a0f1a; padding: 0; }
+        .app-header { background: #0f172a; border-bottom: 1px solid #1e293b; padding: 16px 20px; position: sticky; top: 0; z-index: 100; }
+        .header-top { display: flex; justify-content: space-between; align-items: center; }
+        .header-top h2 { font-size: 20px; color: #f8fafc; }
+        .icon-btn { background: #1e293b; border: 1px solid #334155; color: #94a3b8; width: 40px; height: 40px; border-radius: 10px; display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 18px; }
+        .search-container { padding: 16px 20px; background: #0f172a; }
+        .search-input { width: 100%; padding: 14px 16px; background: #1e293b; border: 1px solid #334155; border-radius: 12px; color: #f8fafc; font-size: 16px; }
+        .password-list { flex: 1; padding: 0 20px 100px; overflow-y: auto; }
+        .empty-state { text-align: center; padding: 60px 20px; color: #64748b; }
+        .password-card { background: #1e293b; border: 1px solid #334155; border-radius: 12px; padding: 16px; margin-bottom: 12px; cursor: pointer; }
+        .card-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px; }
+        .card-title { font-size: 16px; font-weight: 600; color: #f8fafc; }
+        .card-category { font-size: 10px; text-transform: uppercase; background: #334155; color: #94a3b8; padding: 4px 10px; border-radius: 20px; }
+        .fab { position: fixed; bottom: 24px; right: 24px; width: 60px; height: 60px; background: #6366f1; color: white; border: none; border-radius: 30px; font-size: 28px; cursor: pointer; z-index: 50; display: flex; align-items: center; justify-content: center; }
+        .modal { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.8); z-index: 1000; justify-content: flex-end; }
+        .modal.active { display: flex; }
+        .modal-content { background: #1e293b; width: 100%; max-height: 90vh; border-radius: 20px 20px 0 0; padding: 24px; overflow-y: auto; animation: slideUp 0.3s ease; }
+        @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+        .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; }
+        .close-btn { background: none; border: none; color: #94a3b8; font-size: 28px; cursor: pointer; width: 40px; height: 40px; }
+        .form-group { margin-bottom: 20px; }
+        .form-group label { display: block; font-size: 12px; color: #94a3b8; margin-bottom: 8px; font-weight: 500; text-transform: uppercase; }
+        .form-group input, .form-group select { width: 100%; padding: 14px 16px; background: #0f172a; border: 1px solid #334155; border-radius: 10px; color: #f8fafc; font-size: 16px; }
+        .password-input-group { display: flex; gap: 8px; }
+        .btn-small { padding: 14px 20px; background: #334155; border: none; border-radius: 10px; color: #e2e8f0; font-size: 14px; cursor: pointer; }
+        .btn-danger { background: #dc2626; margin-top: 12px; }
+        .toast { position: fixed; bottom: 100px; left: 50%; transform: translateX(-50%); background: #10b981; color: white; padding: 14px 28px; border-radius: 10px; font-size: 14px; opacity: 0; transition: all 0.3s; z-index: 2000; }
+        .toast.show { opacity: 1; }
+        .hidden { display: none !important; }
+        .auth-tabs { display: flex; gap: 8px; margin-bottom: 24px; }
+        .auth-tab { flex: 1; padding: 12px; background: transparent; border: 1px solid #334155; color: #94a3b8; border-radius: 8px; cursor: pointer; }
+        .auth-tab.active { background: #6366f1; border-color: #6366f1; color: white; }
+    </style>
+</head>
+<body>
+    <div id="registerScreen" class="screen auth-container active">
+        <div class="auth-box">
+            <h1>🔐 Create Vault</h1>
+            <p class="subtitle">Set up your encrypted password vault</p>
+            <div class="input-group"><label>Email</label><input type="email" id="regEmail" placeholder="your@email.com"></div>
+            <div class="input-group"><label>Username</label><input type="text" id="regUser" placeholder="Choose username"></div>
+            <div class="input-group"><label>Master Password</label><input type="password" id="regPass" placeholder="Create password"></div>
+            <div class="input-group"><label>Confirm Password</label><input type="password" id="regPassConfirm" placeholder="Confirm password"></div>
+            <button class="btn" onclick="doRegister()">Create Vault</button>
+            <div class="error" id="regError"></div>
+            <button class="btn btn-text" onclick="showScreen('loginScreen')">Already have account? Sign In</button>
+        </div>
+    </div>
+
+    <div id="recoveryScreen" class="screen auth-container">
+        <div class="auth-box">
+            <h1>⚠️ Save Recovery Code</h1>
+            <p class="subtitle">Your ONLY way to recover if you forget password</p>
+            <div class="recovery-box">
+                <h3 style="color:#fbbf24;margin-bottom:8px;">🔑 Your Recovery Code</h3>
+                <div class="recovery-code" id="recoveryCodeDisplay"></div>
+                <p style="font-size:12px;color:#94a3b8;margin-top:8px;">Write this down. We cannot reset your password.</p>
+            </div>
+            <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
+                <input type="checkbox" id="savedCodeCheck" style="width:20px;height:20px;">
+                <label for="savedCodeCheck">I saved my recovery code</label>
+            </div>
+            <button class="btn" onclick="finishSetup()">Continue to Vault</button>
+            <div class="error" id="recoveryError"></div>
+        </div>
+    </div>
+
+    <div id="loginScreen" class="screen auth-container">
+        <div class="auth-box">
+            <h1>🔐 Unlock Vault</h1>
+            <p class="subtitle">Enter your credentials</p>
+            <div class="auth-tabs">
+                <button class="auth-tab active" onclick="setLoginMode('password')">Password</button>
+                <button class="auth-tab" onclick="setLoginMode('recovery')">Recovery</button>
+            </div>
+            <div id="passwordLoginForm">
+                <div class="input-group"><label>Username</label><input type="text" id="loginUser" placeholder="Enter username"></div>
+                <div class="input-group"><label>Master Password</label><input type="password" id="loginPass" placeholder="Enter password"></div>
+                <button class="btn" onclick="doLogin()">Unlock Vault</button>
+            </div>
+            <div id="recoveryLoginForm" class="hidden">
+                <div class="input-group"><label>Username</label><input type="text" id="recoveryUser" placeholder="Enter username"></div>
+                <div class="input-group"><label>Recovery Code</label><input type="text" id="recoveryCode" placeholder="Enter recovery code"></div>
+                <div class="input-group"><label>New Password</label><input type="password" id="newRecoveryPass" placeholder="Create new password"></div>
+                <button class="btn" onclick="doRecovery()">Reset & Unlock</button>
+            </div>
+            <div class="error" id="loginError"></div>
+            <button class="btn btn-text" onclick="showScreen('registerScreen')">Create New Vault</button>
+        </div>
+    </div>
+
+    <div id="mainScreen" class="screen">
+        <div class="app-header">
+            <div class="header-top">
+                <h2 id="vaultTitle">My Vault</h2>
+                <button class="icon-btn" onclick="doLock()">🔒</button>
+            </div>
+        </div>
+        <div class="search-container">
+            <input type="text" class="search-input" id="searchInput" placeholder="Search passwords..." oninput="renderPasswords()">
+        </div>
+        <div class="password-list" id="passwordList">
+            <div class="empty-state"><p>No passwords yet</p><p style="font-size:14px;margin-top:8px;">Tap + to add your first</p></div>
+        </div>
+        <button class="fab" onclick="openAddModal()">+</button>
+    </div>
+
+    <div class="modal" id="itemModal" onclick="if(event.target===this)closeModal()">
+        <div class="modal-content" onclick="event.stopPropagation()">
+            <div class="modal-header">
+                <h3 id="modalTitle">Add Password</h3>
+                <button class="close-btn" onclick="closeModal()">×</button>
+            </div>
+            <div class="form-group">
+                <label>Category</label>
+                <select id="itemCategory"><option value="Personal">Personal</option><option value="Work">Work</option><option value="Finance">Finance</option><option value="Social">Social</option><option value="Other">Other</option></select>
+            </div>
+            <div class="form-group"><label>Site/Service</label><input type="text" id="itemSite" placeholder="e.g., Gmail"></div>
+            <div class="form-group"><label>Username</label><input type="text" id="itemUsername" placeholder="username@example.com"></div>
+            <div class="form-group">
+                <label>Password</label>
+                <div class="password-input-group">
+                    <input type="password" id="itemPassword" placeholder="••••••••">
+                    <button class="btn-small" onclick="generatePassword()">Generate</button>
+                </div>
+            </div>
+            <button class="btn" onclick="saveItem()">Save Password</button>
+            <button class="btn btn-danger hidden" id="deleteBtn" onclick="deleteItem()">Delete</button>
+        </div>
+    </div>
+
+    <div class="toast" id="toast"></div>
+
+    <script>
+        // KODULAR TINYDB BRIDGE
+        const AppStorage = {
+            _cache: {},
+            _kodular: typeof window.Kodular !== 'undefined',
+            
+            getItem(key) {
+                if (this._cache[key]) return this._cache[key];
+                if (this._kodular) {
+                    window.Kodular.setWebViewString("GET:" + key);
+                }
+                try {
+                    const val = localStorage.getItem(key);
+                    if (val) return val;
+                } catch(e) {}
+                return null;
+            },
+            
+            setItem(key, value) {
+                this._cache[key] = value;
+                if (this._kodular) {
+                    window.Kodular.setWebViewString("SET:" + key + ":" + value);
+                }
+                try {
+                    localStorage.setItem(key, value);
+                } catch(e) {}
+            },
+            
+            removeItem(key) {
+                delete this._cache[key];
+                if (this._kodular) {
+                    window.Kodular.setWebViewString("DEL:" + key);
+                }
+                try {
+                    localStorage.removeItem(key);
+                } catch(e) {}
+            }
+        };
+
+        // Listen for data from Kodular
+        if (typeof window.Kodular !== 'undefined') {
+            window.Kodular.getWebViewString = function(val) {
+                if (val && val.startsWith('VALUE:')) {
+                    const data = val.substring(6);
+                    // Store in cache for next get
+                }
+            };
+        }
+
+        // CRYPTO
+        const CryptoUtil = {
+            getRandomBytes(l) { const a=new Uint8Array(l); for(let i=0;i<l;i++)a[i]=Math.floor(Math.random()*256); return a; },
+            async deriveKey(p,s){const k=CryptoJS.PBKDF2(p,CryptoJS.lib.WordArray.create(s),{keySize:8,iterations:100000});const r=new Uint8Array(32);for(let i=0;i<8;i++){r[i*4]=(k.words[i]>>>24)&255;r[i*4+1]=(k.words[i]>>>16)&255;r[i*4+2]=(k.words[i]>>>8)&255;r[i*4+3]=k.words[i]&255;}return r;},
+            async encrypt(t,k){const iv=this.getRandomBytes(12);const e=CryptoJS.AES.encrypt(t,CryptoJS.lib.WordArray.create(k),{iv:CryptoJS.lib.WordArray.create(iv),mode:CryptoJS.mode.GCM});const c=new Uint8Array(iv.length+e.ciphertext.sigBytes);c.set(iv);const b=new Uint8Array(e.ciphertext.sigBytes);for(let i=0;i<e.ciphertext.sigBytes;i++)b[i]=(e.ciphertext.words[i>>>2]>>>(24-(i%4)*8))&255;c.set(b,iv.length);return btoa(String.fromCharCode(...c));},
+            async decrypt(c,k){const d=Uint8Array.from(atob(c),x=>x.charCodeAt(0));const iv=d.slice(0,12);const enc=d.slice(12);const dec=CryptoJS.AES.decrypt({ciphertext:CryptoJS.lib.WordArray.create(enc)},CryptoJS.lib.WordArray.create(k),{iv:CryptoJS.lib.WordArray.create(iv),mode:CryptoJS.mode.GCM});return dec.toString(CryptoJS.enc.Utf8);},
+            async hashPassword(p,s){const k=await this.deriveKey(p,s);return btoa(String.fromCharCode(...k));},
+            generateRecoveryCode(){const c='ABCDEFGHJKMNPQRSTUVWXYZ23456789';let r='';for(let i=0;i<24;i++){if(i>0&&i%6===0)r+='-';r+=c.charAt(Math.floor(Math.random()*c.length));}return r;}
+        };
+
+        let currentUser=null,masterKey=null,passwords=[],editingId=null,tempRecoveryCode=null;
+
+        function showScreen(id){document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));document.getElementById(id).classList.add('active');}
+        function showError(id,msg){const e=document.getElementById(id);e.textContent=msg;e.style.display='block';setTimeout(()=>e.style.display='none',5000);}
+        function showToast(m){const t=document.getElementById('toast');t.textContent=m;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),3000);}
+        function setLoginMode(m){document.querySelectorAll('.auth-tab').forEach(t=>t.classList.remove('active'));event.target.classList.add('active');document.getElementById('passwordLoginForm').classList.toggle('hidden',m!=='password');document.getElementById('recoveryLoginForm').classList.toggle('hidden',m!=='recovery');}
+
+        async function doRegister(){
+            const e=document.getElementById('regEmail').value.trim(),u=document.getElementById('regUser').value.trim(),p=document.getElementById('regPass').value,c=document.getElementById('regPassConfirm').value;
+            if(!e||!u||!p)return showError('regError','Fill all fields');
+            if(p.length<8)return showError('regError','Password 8+ chars');
+            if(p!==c)return showError('regError','Passwords dont match');
+            try{
+                if(AppStorage.getItem('vault_user_'+u))return showError('regError','Username exists');
+                const s=CryptoUtil.getRandomBytes(16),k=await CryptoUtil.deriveKey(p,s),kh=await CryptoUtil.hashPassword(p,s);
+                tempRecoveryCode=CryptoUtil.generateRecoveryCode();
+                const rs=CryptoUtil.getRandomBytes(16);
+                const ud={email:e,username:u,salt:btoa(String.fromCharCode(...s)),keyHash:kh,recoverySalt:btoa(String.fromCharCode(...rs)),recoveryHash:await CryptoUtil.hashPassword(tempRecoveryCode,rs),created:Date.now()};
+                AppStorage.setItem('vault_user_'+u,JSON.stringify(ud));
+                AppStorage.setItem('vault_last_user',u);
+                document.getElementById('recoveryCodeDisplay').textContent=tempRecoveryCode;
+                showScreen('recoveryScreen');
+            }catch(e){showError('regError','Error: '+e.message);}
+        }
+
+        async function finishSetup(){if(!document.getElementById('savedCodeCheck').checked)return showError('recoveryError','Confirm you saved code');tempRecoveryCode=null;showScreen('loginScreen');showToast('Vault created! Log in.');}
+
+        async function doLogin(){
+            const u=document.getElementById('loginUser').value.trim(),p=document.getElementById('loginPass').value;
+            if(!u||!p)return showError('loginError','Enter username and password');
+            try{await unlockVault(u,p);}catch(e){showError('loginError',e.message);}
+        }
+
+        async function doRecovery(){
+            const u=document.getElementById('recoveryUser').value.trim(),c=document.getElementById('recoveryCode').value.trim().toUpperCase(),np=document.getElementById('newRecoveryPass').value;
+            if(!u||!c||!np)return showError('loginError','Fill all fields');
+            if(np.length<8)return showError('loginError','Password 8+ chars');
+            try{
+                const ud=JSON.parse(AppStorage.getItem('vault_user_'+u));if(!ud)throw new Error('User not found');
+                const rs=Uint8Array.from(atob(ud.recoverySalt),x=>x.charCodeAt(0));
+                if(await CryptoUtil.hashPassword(c,rs)!==ud.recoveryHash)throw new Error('Invalid code');
+                const s=CryptoUtil.getRandomBytes(16),k=await CryptoUtil.deriveKey(np,s),kh=await CryptoUtil.hashPassword(np,s);
+                const nrc=CryptoUtil.generateRecoveryCode(),nrs=CryptoUtil.getRandomBytes(16);
+                let ep=[];const epd=AppStorage.getItem('vault_passwords_'+u);if(epd){const ok=await CryptoUtil.deriveKey(c,rs);ep=JSON.parse(await CryptoUtil.decrypt(epd,ok));}
+                ud.salt=btoa(String.fromCharCode(...s));ud.keyHash=kh;ud.recoverySalt=btoa(String.fromCharCode(...nrs));ud.recoveryHash=await CryptoUtil.hashPassword(nrc,nrs);
+                AppStorage.setItem('vault_user_'+u,JSON.stringify(ud));
+                AppStorage.setItem('vault_passwords_'+u,await CryptoUtil.encrypt(JSON.stringify(ep),k));
+                masterKey=k;currentUser=ud;passwords=ep;
+                document.getElementById('recoveryCodeDisplay').textContent=nrc;
+                showScreen('recoveryScreen');showToast('Reset! Save new code.');
+            }catch(e){showError('loginError','Recovery failed: '+e.message);}
+        }
+
+        async function unlockVault(u,p){
+            const ud=JSON.parse(AppStorage.getItem('vault_user_'+u));if(!ud)throw new Error('User not found');
+            const s=Uint8Array.from(atob(ud.salt),x=>x.charCodeAt(0));
+            if(await CryptoUtil.hashPassword(p,s)!==ud.keyHash)throw new Error('Wrong password');
+            masterKey=await CryptoUtil.deriveKey(p,s);currentUser=ud;
+            const ep=AppStorage.getItem('vault_passwords_'+u);
+            if(ep){try{passwords=JSON.parse(await CryptoUtil.decrypt(ep,masterKey));}catch(e){passwords=[];}}else passwords=[];
+            document.getElementById('vaultTitle').textContent=u+"'s Vault";
+            renderPasswords();showScreen('mainScreen');showToast('Vault unlocked');
+        }
+
+        function doLock(){currentUser=null;masterKey=null;passwords=[];editingId=null;document.getElementById('loginUser').value='';document.getElementById('loginPass').value='';showScreen('loginScreen');}
+
+        function renderPasswords(){
+            const q=document.getElementById('searchInput').value.toLowerCase(),l=document.getElementById('passwordList');
+            const f=q?passwords.filter(x=>x.site.toLowerCase().includes(q)||x.username.toLowerCase().includes(q)):passwords;
+            if(f.length===0){l.innerHTML='<div class="empty-state"><p>'+(q?'No matches':'No passwords yet')+'</p><p style="font-size:14px;margin-top:8px;">'+(q?'Try different search':'Tap + to add first')+'</p></div>';return;}
+            l.innerHTML=f.map(p=>`<div class="password-card" onclick="openEditModal('${p.id}')"><div class="card-header"><span class="card-title">${p.site}</span><span class="card-category">${p.category}</span></div><div class="card-meta"><span>${p.username}</span></div></div>`).join('');
+        }
+
+        function openAddModal(){editingId=null;document.getElementById('modalTitle').textContent='Add Password';document.getElementById('itemCategory').value='Personal';document.getElementById('itemSite').value='';document.getElementById('itemUsername').value='';document.getElementById('itemPassword').value='';document.getElementById('deleteBtn').classList.add('hidden');document.getElementById('itemModal').classList.add('active');}
+        function openEditModal(id){const p=passwords.find(x=>x.id===id);if(!p)return;editingId=id;document.getElementById('modalTitle').textContent='Edit Password';document.getElementById('itemCategory').value=p.category;document.getElementById('itemSite').value=p.site;document.getElementById('itemUsername').value=p.username;document.getElementById('itemPassword').value=p.password;document.getElementById('deleteBtn').classList.remove('hidden');document.getElementById('itemModal').classList.add('active');}
+        function closeModal(){document.getElementById('itemModal').classList.remove('active');}
+
+        async function saveItem(){
+            const c=document.getElementById('itemCategory').value,s=document.getElementById('itemSite').value.trim(),u=document.getElementById('itemUsername').value.trim(),p=document.getElementById('itemPassword').value;
+            if(!s||!u||!p)return showToast('Fill all fields');
+            const i={id:editingId||Date.now().toString(36),category:c,site:s,username:u,password:p,updated:Date.now()};
+            if(editingId){const x=passwords.findIndex(y=>y.id===editingId);if(x>=0)passwords[x]=i;}else passwords.push(i);
+            await savePasswords();closeModal();renderPasswords();showToast('Saved');
+        }
+
+        async function deleteItem(){if(!editingId||!confirm('Delete?'))return;passwords=passwords.filter(p=>p.id!==editingId);await savePasswords();closeModal();renderPasswords();showToast('Deleted');}
+
+        async function savePasswords(){if(!currentUser||!masterKey)return;AppStorage.setItem('vault_passwords_'+currentUser.username,await CryptoUtil.encrypt(JSON.stringify(passwords),masterKey));}
+
+        function generatePassword(){const c='abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*';let p='';for(let i=0;i<16;i++)p+=c.charAt(Math.floor(Math.random()*c.length));document.getElementById('itemPassword').value=p;}
+
+        window.onload=function(){const u=AppStorage.getItem('vault_last_user');if(u&&AppStorage.getItem('vault_user_'+u)){showScreen('loginScreen');document.getElementById('loginUser').value=u;}};
+    </script>
+</body>
+</html>
